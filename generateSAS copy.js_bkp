@@ -1,0 +1,48 @@
+require('dotenv').config();
+const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = require("@azure/storage-blob");
+const mygetSecret = require('./azureInit');
+
+async function mygenerateSAS (blobName)
+{
+    const accountKeySecret = "AZUREACCOUNTKEY";
+    const accountKey = null;
+      
+    // Azure Blob Setup
+    console.log("calling the secret function....neil");
+    (async () => 
+    {
+        accountKey = await mygetSecret(accountKeySecret);
+
+        // Azure Storage account credentials
+    const accountName = process.env.ACCOUNT_NAME;
+    const containerName = process.env.CONTAINER_NAME;
+
+    const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
+
+    // SAS options
+    const sasOptions = {
+    containerName,
+    blobName,
+    permissions: BlobSASPermissions.parse("r"), // read-only
+    startsOn: new Date(new Date().valueOf() - 5 * 60 * 1000), // 5 min back
+    expiresOn: new Date(new Date().valueOf() + 60 * 60 * 1000) // 60 minutes from now
+    };
+
+    // Generate SAS token
+    const sasToken = generateBlobSASQueryParameters(sasOptions, sharedKeyCredential).toString();
+
+    // SAS URL
+    const sasUrl = `https://${accountName}.blob.core.windows.net/${containerName}/${blobName}?${sasToken}`;
+
+    console.log("SAS URL:", sasUrl);
+
+    return(sasUrl);
+    
+    }) ();
+
+    
+    
+}
+
+// export the modules
+module.exports = mygenerateSAS;

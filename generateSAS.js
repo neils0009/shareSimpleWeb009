@@ -1,35 +1,46 @@
-const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = require("@azure/storage-blob");
+require('dotenv').config();
+const {
+  generateBlobSASQueryParameters,
+  BlobSASPermissions,
+  StorageSharedKeyCredential
+} = require("@azure/storage-blob");
 
-function mygenerateSAS (blobName)
-{
-    // Azure Storage account credentials
-    const accountName = process.env.ACCOUNT_NAME;
-    const accountKey = process.env.AZURE_ACCOUNT_KEY;
-    const containerName = process.env.CONTAINER_NAME;
+const mygetSecret = require('./azureInit');
 
+async function mygenerateSAS(blobName) {
+  const accountKeySecret = "AZUREACCOUNTKEY";
 
-    const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
+  console.log("🔐 Fetching account key from Key Vault...");
+  const accountKey = await mygetSecret(accountKeySecret); // ✅ Await here directly
 
-    // SAS options
-    const sasOptions = {
+  if (!accountKey) {
+    throw new Error("❌ Failed to retrieve account key from Key Vault.");
+  }
+
+  const accountName = process.env.ACCOUNT_NAME;
+  const containerName = process.env.CONTAINER_NAME;
+
+  if (!accountName || !containerName) {
+    throw new Error("❌ ACCOUNT_NAME or CONTAINER_NAME environment variable not set.");
+  }
+
+  const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
+
+  const sasOptions = {
     containerName,
     blobName,
-    permissions: BlobSASPermissions.parse("r"), // read-only
-    startsOn: new Date(new Date().valueOf() - 5 * 60 * 1000), // 5 min back
-    expiresOn: new Date(new Date().valueOf() + 60 * 60 * 1000) // 60 minutes from now
-    };
+    permissions: BlobSASPermissions.parse("r"),
+    startsOn: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
+    expiresOn: new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
+  };
 
-    // Generate SAS token
-    const sasToken = generateBlobSASQueryParameters(sasOptions, sharedKeyCredential).toString();
+  const sasToken = generateBlobSASQueryParameters(sasOptions, sharedKeyCredential).toString();
 
-    // SAS URL
-    const sasUrl = `https://${accountName}.blob.core.windows.net/${containerName}/${blobName}?${sasToken}`;
+  const sasUrl = `https://${accountName}.blob.core.windows.net/${containerName}/${blobName}?${sasToken}`;
 
-    console.log("SAS URL:", sasUrl);
+  console.log("✅ SAS URL:", sasUrl);
 
-    return(sasUrl);
-    
+  return sasUrl;
 }
 
-// export the modules
 module.exports = mygenerateSAS;
